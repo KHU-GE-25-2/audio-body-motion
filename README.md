@@ -2,14 +2,24 @@
 
 음성 데이터로부터 자연스러운 모션을 합성하는 과제의 베이스 코드이며 2017년 LSTM을 활용한 음성 기반 모션 합성 논문([링크](https://www.researchgate.net/publication/320435956_Speech-to-Gesture_Generation_A_Challenge_in_Deep_Learning_Approach_with_Bi-Directional_LSTM))를 바탕으로 구현됨
 
+이 연구는 과학기술정보통신부의 재원으로 한국지능정보사회진흥원의 지원을 받아 구축된 "음성 및 모션 합성 데이터"을 활용하여 수행된 연구입니다. 본 연구에 활용된 데이터는 AI 허브(aihub.or.kr)에서 다운로드 받으실 수 있습니다.
+
 ## 환경 
 
 - Conda 환경 사용을 추천 ([링크](https://www.anaconda.com/products/individual))
 - python = 3.7
 
+```
+conda create -n [ENV_NAME] python=3.7
+```
+
 ## 준비 
 
 ### 패키지 설치 
+
+```
+conda activate [ENV_NAME]
+```
 
 ```
 pip install -r requirements.txt
@@ -18,6 +28,10 @@ pip install -r requirements.txt
 ### Pytorch 설치 
 
 공식 pytorch 홈페이지의 [설치 페이지](https://pytorch.org/get-started/previous-versions/#v160)에 들어가서 알맞은 환경의 torch 1.6 버전 설치 
+
+```
+conda install pytorch==1.6.0 torchvision==0.7.0 cudatoolkit=10.2 -c pytorch
+```
 
 ## 작업 폴더 구성 및 설명 
 
