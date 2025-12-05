@@ -218,6 +218,7 @@ __marimo__/
 # train / test / result videos
 data_folder
 preprocessed
+preprocessed_norm
 results_new
 results_old
 *.mp4

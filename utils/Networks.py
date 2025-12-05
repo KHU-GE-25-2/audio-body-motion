@@ -31,69 +31,52 @@ class AudioProcessorBlock(nn.Module):
 
 # --- The main, enhanced model ---
 class AudioGestureLSTMRevised(nn.Module):
-    def __init__(self, mfcc_channel, context, hidden_size, n_joint, silence_npy_path, device, dropout=0.2, num_layers=2, bidirectional=True):
-        super().__init__()
-        self.mfcc_channel = mfcc_channel
-        self.context = context
-        self.hidden_size = hidden_size
-        self.n_joint = n_joint
+    def __init__(self, input_size, context, hidden_size, output_size, silence_path=None, device='cpu', dropout=0.1):
+        super(AudioGestureLSTMRevised, self).__init__()
+        
         self.device = device
-
-        self.D = 2 if bidirectional else 1 # For bidirectional LSTM
-
-        # --- 1. Initial Temporal Convolution ---
-        # This layer expands the receptive field for each time step.
-        self.temporal_conv = nn.Conv1d(
-            in_channels=self.mfcc_channel,
-            out_channels=self.hidden_size, # Project to hidden_size early
-            kernel_size=(2 * self.context + 1),
-            stride=1
+        self.input_size = input_size    # Should be 26 (MFCC)
+        self.output_size = output_size  # Should be 78 (Joints * 3)
+        
+        # Layer 1: Project Audio Features up to Hidden Size
+        self.embedding = nn.Sequential(
+            nn.Linear(input_size, hidden_size),
+            nn.LeakyReLU(0.2),
+            nn.Dropout(dropout)
         )
-        self.conv_norm = nn.LayerNorm(self.hidden_size)
-
-        # --- 2. Pre-LSTM Processing Blocks with Residual Connection ---
-        # This deepens the feature extraction before the sequential analysis.
-        self.pre_lstm_block = nn.Sequential(
-            AudioProcessorBlock(self.hidden_size, self.hidden_size, dropout=dropout),
-            AudioProcessorBlock(self.hidden_size, self.hidden_size, dropout=dropout)
-        )
-
-        # --- 3. Core Sequential Model ---
+        
+        # Layer 2: The Core LSTM
+        # batch_first=True means input format is (Batch, Time, Features)
         self.lstm = nn.LSTM(
-            input_size=self.hidden_size, # Input is now the processed features
-            hidden_size=self.hidden_size,
-            num_layers=num_layers,
-            bidirectional=bidirectional,
-            batch_first=True,
-            dropout=dropout if num_layers > 1 else 0
+            input_size=hidden_size, 
+            hidden_size=hidden_size, 
+            num_layers=2, 
+            batch_first=True, 
+            dropout=dropout
+        )
+        
+        # Layer 3: Project back to Motion Space
+        self.regressor = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.LeakyReLU(0.2),
+            nn.Linear(hidden_size, output_size)
         )
 
-        # --- 4. Output Projection Head ---
-        self.output_head = nn.Linear(self.hidden_size * self.D, self.n_joint * 3)
-
-    def forward(self, wav): # wav shape: [batch, seq_len + 2 * context, mfcc_channel]
-        # Permute for Conv1d: [batch, mfcc_channel, seq_len + 2*context]
-        wav = wav.permute(0, 2, 1)
-
-        # --- Stage 1: Temporal Feature Extraction ---
-        conv_out = self.temporal_conv(wav)
-        # Permute back for sequence processing: [batch, seq_len, hidden_size]
-        conv_out = conv_out.permute(0, 2, 1)
-        # Apply normalization
-        x = self.conv_norm(conv_out)
-
-        # --- Stage 2: Deep Feature Processing with Residual Connection ---
-        # The input 'x' is added to the output of the block, creating a skip connection.
-        processed_x = self.pre_lstm_block(x) + x
-
-        # --- Stage 3: Sequential Analysis ---
-        lstm_output, _ = self.lstm(processed_x)
-
-        # --- Stage 4: Final Projection ---
-        # No activation here, as output coordinates can be positive or negative.
-        output_gestures = self.output_head(lstm_output)
-
-        return output_gestures
+    def forward(self, x):
+        # x shape: (Batch, Frames, 26)
+        
+        # 1. Embed
+        x = self.embedding(x) 
+        
+        # 2. Recurrent Processing
+        # LSTM output shape: (Batch, Frames, Hidden)
+        out, _ = self.lstm(x)
+        
+        # 3. Output
+        out = self.regressor(out)
+        
+        # Result shape: (Batch, Frames, 78)
+        return out
 
 class AudioGestureLSTM(nn.Module): 
     def __init__(self, mfcc_channel, context, hidden_size, n_joint, silence_npy_path, device, dropout=0, num_layer=2, bidirectional=True): 

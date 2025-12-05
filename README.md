@@ -120,6 +120,22 @@ python get_reference_npy.py --wav_path ref_data_folder/silence.wav --bvh_path re
 - bvh_path : hierarchy.bvh 파일의 경로 
 - target_folder : silence.npy와 hierarchy.npy 파일이 저장될 폴더 
 
+## 추가 전처리 (revised model 위함)
+
+for the revised model: calculate mean for revised model and normalize preprocessed data
+
+```
+python calculate_stats.py
+python normalize_data.py
+```
+
+if you want to check if the data is valid and normalized well
+
+```
+python check_preprocessed_ref.py
+python inspect_data.py
+```
+
 ## 학습
 
 ```
@@ -131,7 +147,7 @@ python train.py --dataset_path preprocessed --results_path results_old --silence
 ```
 [New Model Training]
 
-python train.py --dataset_path preprocessed --results_path results_new --silence_npy_path preprocessed_ref/silence.npy --hierarchy_npy_path preprocessed_ref/hierarchy.npy --context 30 --mfcc_channel 26 --n_joint 26 --epoch 200 --learning_rate 0.0001 --milestones 300 400 --weight_decay 0.01 --revised_model
+python train.py --dataset_path preprocessed_norm --results_path results_new --stats_dir preprocessed_ref --silence_npy_path preprocessed_ref/silence.npy --hierarchy_npy_path preprocessed_ref/hierarchy_norm.npy --context 30 --mfcc_channel 26 --n_joint 78 --epoch 100 --dropout 0.2 --learning_rate 0.0002 --hidden_size 256 --milestones 300 400 --weight_decay 0.01 --batch_size 15 --revised_model
 ```
 
 - dataset_path : 전처리 과정에서 생성된 npy 폴더 (전처리 3 과정의 결과물)
@@ -152,13 +168,13 @@ python train.py --dataset_path preprocessed --results_path results_new --silence
 ```
 [Old Model Inference]
 
-python inference.py --model_path results_old/train_3/LSTM_Final.ckpt --input_wav data_folder/train/wav/MM_D_E_FF_CC_S335S336_002.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --mfcc_channel 26 --n_joint 26 --context 30 --output_path results_train_old_002_1203.mp4
+python inference.py --model_path results_old/train_3/LSTM_Final.ckpt --input_wav data_folder/train/wav/MM_M_C_F_C_S064_001.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --mfcc_channel 26 --n_joint 26 --context 30 --output_path results_train_old_001_1204.mp4
 ```
 
 ```
 [New Model Inference]
 
-python inference.py --model_path results_new/train_2/LSTM_Final.ckpt --input_wav data_folder/train/wav/MM_D_E_FF_CC_S335S336_002.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --hidden_size 256 --dropout 0.1 --mfcc_channel 26 --n_joint 26 --context 30 --output_path results_train_002_1202.mp4 --revised_model
+python inference.py --model_path results_new/train_3/LSTM_Final.ckpt --input_wav data_folder/train/wav/MM_M_C_F_C_S154_024.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --stats_dir preprocessed_norm --hidden_size 256 --mfcc_channel 26 --n_joint 78 --context 30 --output_path results_new_024_1205.mp4 --revised_model
 ```
 
 - model_path : 학습된 모델 경로 
