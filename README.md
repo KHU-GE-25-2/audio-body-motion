@@ -174,7 +174,13 @@ python inference.py --model_path results_old/train_3/LSTM_Final.ckpt --input_wav
 ```
 [New Model Inference]
 
-python inference.py --model_path results_new/train_3/LSTM_Final.ckpt --input_wav data_folder/train/wav/MM_M_C_F_C_S154_024.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --stats_dir preprocessed_norm --hidden_size 256 --mfcc_channel 26 --n_joint 78 --context 30 --output_path results_new_024_1205.mp4 --revised_model
+python inference.py --model_path results_new/train_4/LSTM_Final.ckpt --input_wav data_folder/train/wav/MM_M_C_F_C_S154_024.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --stats_dir preprocessed_norm --hidden_size 256 --mfcc_channel 26 --n_joint 78 --context 30 --output_path results_new_001_1206_loud.mp4 --motion_loudness 1.2 --revised_model
+```
+
+```
+[model evaluation]
+
+python evaluate_model.py --model_path "results_new/train_3/LSTM_Final.ckpt" --test_dir "preprocessed_norm" --silence_npy_path preprocessed_ref/silence.npy --revised_model
 ```
 
 - model_path : 학습된 모델 경로 

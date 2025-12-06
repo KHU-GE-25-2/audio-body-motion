@@ -68,7 +68,12 @@ def main():
     
     if (args.revised_model):
         print("Using REVISED Dataset (Normalized)")
-        dataset = AudioGestureDatasetRevised(args.dataset_path, args.context, args.silence_npy_path, stats_path=args.stats_dir)
+        dataset = AudioGestureDatasetRevised(
+            args.dataset_path, 
+            args.context, 
+            args.silence_npy_path, 
+            stats_path=args.stats_dir
+        )
     else:
         print("Using ORIGINAL Dataset (Raw)")
         dataset = AudioGestureDataset(args.dataset_path, args.context, args.silence_npy_path)
@@ -84,7 +89,17 @@ def main():
     # for revised model
     if (args.revised_model):
         print("Revised Model running")
-        model = AudioGestureLSTMRevised(args.mfcc_channel, args.context, args.hidden_size, args.n_joint, args.silence_npy_path, device, dropout=args.dropout).to(device)
+        model = AudioGestureLSTMRevised(
+            args.mfcc_channel, 
+            args.context, 
+            args.hidden_size, 
+            args.n_joint, 
+            args.silence_npy_path, 
+            device, 
+            dropout=args.dropout,
+            num_layers=2,
+            bidirectional=True
+        ).to(device)
     else:
         print("Old Model running")
         model = AudioGestureLSTM(args.mfcc_channel, args.context, args.hidden_size, args.n_joint, args.silence_npy_path, device, dropout=args.dropout).to(device)

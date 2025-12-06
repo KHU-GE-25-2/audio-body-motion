@@ -11,71 +11,95 @@ def get_numpy(path):
     # In a real scenario, this would load from the path
     # For this example, let's assume it returns a silent MFCC frame
     return np.zeros((1, 40)) # Example shape (1, mfcc_channel)
-
-# --- A reusable, normalized, and regularized processing block ---
-class AudioProcessorBlock(nn.Module):
-    """A block with Linear -> LayerNorm -> Activation -> Dropout."""
-    def __init__(self, input_dim, output_dim, activation=nn.GELU(), dropout=0.1):
-        super().__init__()
-        self.linear = nn.Linear(input_dim, output_dim)
-        self.norm = nn.LayerNorm(output_dim)
-        self.activation = activation
-        self.dropout = nn.Dropout(dropout)
+    
+class ResidualBlock(nn.Module):
+    """
+    A simple Residual Block: x = x + MLP(x)
+    Helps smooth out the signal and prevents gradient vanishing.
+    """
+    def __init__(self, hidden_size, dropout=0.1):
+        super(ResidualBlock, self).__init__()
+        self.block = nn.Sequential(
+            nn.LayerNorm(hidden_size),      # 1. Stabilize input
+            nn.GELU(),                      # 2. Smooth activation
+            nn.Dropout(dropout),
+            nn.Linear(hidden_size, hidden_size),
+            nn.LayerNorm(hidden_size),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_size, hidden_size)
+        )
 
     def forward(self, x):
-        x = self.linear(x)
-        x = self.norm(x)
-        x = self.activation(x)
-        x = self.dropout(x)
-        return x
+        # The "Skip Connection": Input (x) + Processed (block(x))
+        return x + self.block(x)
 
-# --- The main, enhanced model ---
 class AudioGestureLSTMRevised(nn.Module):
-    def __init__(self, input_size, context, hidden_size, output_size, silence_path=None, device='cpu', dropout=0.1):
+    def __init__(self, mfcc_channel, context, hidden_size, n_joint, silence_npy_path=None, device='cpu', dropout=0.1, num_layers=2, bidirectional=True):
         super(AudioGestureLSTMRevised, self).__init__()
         
         self.device = device
-        self.input_size = input_size    # Should be 26 (MFCC)
-        self.output_size = output_size  # Should be 78 (Joints * 3)
         
-        # Layer 1: Project Audio Features up to Hidden Size
-        self.embedding = nn.Sequential(
+        # IO Dimensions
+        input_size = mfcc_channel # 26
+        output_size = n_joint     # 78
+        
+        # --- 1. Audio Encoder (Pre-Net) ---
+        # Projects audio features up to hidden size with stabilization
+        self.audio_encoder = nn.Sequential(
             nn.Linear(input_size, hidden_size),
-            nn.LeakyReLU(0.2),
+            nn.LayerNorm(hidden_size), # Norm
+            nn.GELU(),                 # Smoothness
             nn.Dropout(dropout)
         )
         
-        # Layer 2: The Core LSTM
-        # batch_first=True means input format is (Batch, Time, Features)
+        # --- 2. The Recurrent Core ---
         self.lstm = nn.LSTM(
             input_size=hidden_size, 
             hidden_size=hidden_size, 
-            num_layers=2, 
+            num_layers=num_layers, 
             batch_first=True, 
-            dropout=dropout
+            dropout=dropout,
+            bidirectional=bidirectional
         )
         
-        # Layer 3: Project back to Motion Space
-        self.regressor = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size),
-            nn.LeakyReLU(0.2),
+        # Calculate LSTM output size (doubles if bidirectional)
+        lstm_out_size = hidden_size * 2 if bidirectional else hidden_size
+        
+        # Projection to bring bidirectional output back to hidden_size
+        self.post_lstm_proj = nn.Linear(lstm_out_size, hidden_size)
+
+        # --- 3. Residual Correction (The Smoother) ---
+        # Allows the model to refine the flow
+        self.res_block = ResidualBlock(hidden_size, dropout)
+        
+        # --- 4. Motion Decoder (Post-Net) ---
+        self.output_decoder = nn.Sequential(
+            nn.LayerNorm(hidden_size),
+            nn.GELU(),
             nn.Linear(hidden_size, output_size)
         )
 
     def forward(self, x):
-        # x shape: (Batch, Frames, 26)
+        # x shape: (Batch, Time, 26)
         
-        # 1. Embed
-        x = self.embedding(x) 
+        # 1. Encode Audio
+        x = self.audio_encoder(x) 
         
-        # 2. Recurrent Processing
-        # LSTM output shape: (Batch, Frames, Hidden)
-        out, _ = self.lstm(x)
+        # 2. LSTM Processing
+        # out shape: (Batch, Time, lstm_out_size)
+        x, _ = self.lstm(x)
         
-        # 3. Output
-        out = self.regressor(out)
+        # 3. Project back if bidirectional
+        x = self.post_lstm_proj(x)
         
-        # Result shape: (Batch, Frames, 78)
+        # 4. Apply Residual Block
+        # This is where the smoothing magic happens
+        x = self.res_block(x)
+        
+        # 5. Decode to Pose
+        out = self.output_decoder(x)
+        
         return out
 
 class AudioGestureLSTM(nn.Module): 
@@ -98,7 +122,7 @@ class AudioGestureLSTM(nn.Module):
         self.h3 = nn.Linear(in_features=self.mfcc_channel, out_features=self.mfcc_channel)
         self.h4 = nn.LSTM(input_size=self.mfcc_channel, hidden_size=self.hidden_size, 
                           num_layers=num_layer, bidirectional=bidirectional, batch_first=True, dropout=self.dropout)
-        self.h5 = nn.Linear(in_features=self.hidden_size * self.D, out_features=self.n_joint * 3)
+        self.h5 = nn.Linear(in_features=self.hidden_size * self.D, out_features=self.n_joint)
         self.relu = nn.ReLU()
     
     def forward(self, wav): # wav : [batch, longest_seq + 2 * context, mfcc channel]

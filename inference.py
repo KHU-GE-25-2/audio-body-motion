@@ -41,6 +41,8 @@ def parse_args():
     parser.add_argument('--bg_size', type=int, default=512, help='Size of output video')
     parser.add_argument('--size_mag', type=float, default=2.0, help='scaling factor to size up or down output skeleton')
     parser.add_argument('--fps', type=int, default=20, help='FPS for output video')
+
+    parser.add_argument('--motion_loudness', type=float, default=1.0, help='Motion Gain: 1.0=Normal, 1.2=Energetic, 0.8=Subtle')
     
     parser.add_argument('--revised_model', action="store_true", help='use the revised model version')
 
@@ -90,6 +92,10 @@ def main():
 
     with torch.no_grad():
         output = model(input_wav) # [1(batch), total_time_step, n_joint * 3]
+
+        if args.motion_loudness != 1.0:
+            print(f"⚡ Applying Motion Loudness: x{args.motion_loudness}")
+            output = output * args.motion_loudness
 
         print(f"Raw Model Output Range: [{output.min():.3f}, {output.max():.3f}] (Should be approx -1 to 1)")
 
