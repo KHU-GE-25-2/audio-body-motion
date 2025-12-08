@@ -215,10 +215,11 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# train / test / result videos
+# train / test / results
 data_folder
 preprocessed
 preprocessed_norm
 results_new
 results_old
 *.mp4
+*.fbx

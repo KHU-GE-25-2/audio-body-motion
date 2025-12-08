@@ -162,6 +162,21 @@ python train.py --dataset_path preprocessed_norm --results_path results_new --st
     - milestones : 300 400 (0.1배 학습률 변경 epoch 지점)
     - context : 30 (한쪽 방향의 추가 음성 데이터 frame 수)
 
+## UE5 import
+
+1. inference.py로 생성한 npy 파일을 블렌더 실행 후 블렌더의 bpy 라이브러리를 통해 fbx로 변환
+
+```
+npy_to_fbx.py 블렌더 Scripting에서 Text 에디터로 실행
+```
+
+2. UE5에서 import한 애니메이션에 타 스켈레톤 리타겟팅
+
+Root/Hips: Set Translation Mode to Absolute.
+Spine/Head: Set Translation Mode to Absolute.
+Arms/Legs: Set Translation Mode to None (drive them with IK).
+
+*Used Full Body IK for compatibility
 
 ## 평가 
 
@@ -174,7 +189,7 @@ python inference.py --model_path results_old/train_3/LSTM_Final.ckpt --input_wav
 ```
 [New Model Inference]
 
-python inference.py --model_path results_new/train_4/LSTM_Final.ckpt --input_wav data_folder/train/wav/MM_M_C_F_C_S154_024.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --stats_dir preprocessed_norm --hidden_size 256 --mfcc_channel 26 --n_joint 78 --context 30 --output_path results_new_001_1206_loud.mp4 --motion_loudness 1.2 --revised_model
+python inference.py --model_path results_new/train_4/LSTM_Final.ckpt --input_wav data_folder/train/wav/MM_M_C_F_C_S064_001.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --stats_dir preprocessed_norm --hidden_size 256 --mfcc_channel 26 --n_joint 78 --context 30 --output_path results_new_001_1207_loud.mp4 --motion_loudness 1.2 --revised_model
 ```
 
 ```

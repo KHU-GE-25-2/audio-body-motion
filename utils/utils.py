@@ -4,6 +4,7 @@ import torch
 import shutil
 import numpy as np
 import moviepy.editor as mpe
+import re
 from utils.feature_tools import * 
 
 
@@ -96,3 +97,56 @@ def draw_gesture_and_save_video(outputs, child_list, output_path, bg_size, size_
 
     print(f'Done to make gesture video')
     save_video.release()
+
+def save_bvh(save_path, motion_data, ref_bvh_path):
+    """
+    Saves model output (Absolute Positions) to a BVH file.
+    It modifies the header to accept POSITION channels for all joints.
+    """
+    print(f"Saving Position-Based BVH to {save_path}...")
+    
+    # 1. Read and Modify Header
+    header_lines = []
+    with open(ref_bvh_path, 'r') as f:
+        for line in f:
+            if "MOTION" in line:
+                break
+            
+            # THE MAGIC TRICK:
+            # Change "CHANNELS 3 Zrotation Xrotation Yrotation"
+            # To     "CHANNELS 3 Xposition Yposition Zposition"
+            if "CHANNELS 3" in line:
+                line = re.sub(r"Zrotation Xrotation Yrotation", "Xposition Yposition Zposition", line)
+                # Also handle variations like "Xrotation Yrotation Zrotation"
+                line = re.sub(r"[XYZ]rotation [XYZ]rotation [XYZ]rotation", "Xposition Yposition Zposition", line)
+            
+            header_lines.append(line)
+    
+    # 2. Inspect Data Dimensions
+    frames, data_channels = motion_data.shape
+    
+    # Count how many channels the NEW header expects
+    header_channels = 0
+    for line in header_lines:
+        if "CHANNELS" in line:
+            parts = line.strip().split()
+            header_channels += int(parts[1])
+
+    # 3. Handle End Sites (Truncate)
+    diff = data_channels - header_channels
+    if diff > 0:
+        print(f"⚠️ Truncating {diff} extra channels (End Sites).")
+        motion_data = motion_data[:, :header_channels]
+    
+    # 4. Write File
+    with open(save_path, 'w') as f:
+        f.writelines(header_lines)
+        f.write("MOTION\n")
+        f.write(f"Frames: {frames}\n")
+        f.write("Frame Time: 0.050000\n") 
+        
+        for frame in motion_data:
+            line = " ".join(f"{x:.6f}" for x in frame)
+            f.write(line + "\n")
+            
+    print(f"✅ Saved Position-BVH to {save_path}")

@@ -8,6 +8,7 @@ from utils.utils import (
     get_child_list_from_bvh,
     draw_gesture_and_save_video,
     combine_video_and_audio,
+    save_bvh
 )
 
 from utils.Networks import AudioGestureLSTM, AudioGestureLSTMRevised
@@ -142,6 +143,25 @@ def main():
     # else:
          
     #     output = model(input_wav) # [1(batch), total_time_step, n_joint * 3]
+
+    final_output_np = output.squeeze(0).cpu().numpy()
+
+    # 2. Define Save Paths
+    bvh_output_path = args.output_path.replace(".mp4", ".bvh")
+    npy_output_path = args.output_path.replace(".mp4", ".npy")
+
+    # 3. Save BVH (Rotations)
+    # NOTE: This works correctly ONLY if your model predicts Rotation Angles (Euler).
+    # If your model predicts 3D Positions (XYZ), the BVH will look 'exploded'.
+    save_bvh(
+        save_path=bvh_output_path, 
+        motion_data=final_output_np, 
+        ref_bvh_path=args.hierarchy_bvh_path
+    )
+
+    # 4. Save Raw NPY (Backup)
+    np.save(npy_output_path, final_output_np)
+    print(f"Saved raw motion data to {npy_output_path}")
 
     child_list = get_child_list_from_bvh(args.hierarchy_bvh_path)
     draw_gesture_and_save_video(output.squeeze(0), child_list, args.output_path, 
