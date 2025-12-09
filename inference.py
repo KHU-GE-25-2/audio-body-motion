@@ -100,49 +100,64 @@ def main():
 
         print(f"Raw Model Output Range: [{output.min():.3f}, {output.max():.3f}] (Should be approx -1 to 1)")
 
-    # ==========================================
-    # START: DE-NORMALIZATION (The Fix)
-    # ==========================================
-    print("De-normalizing output...")
+    # de-normalization for the revised model
+    if (args.revised_model):
+        print("De-normalizing output...")
 
-    stats_path = os.path.join(args.stats_dir, 'stats_Y.npz')
+        stats_path = os.path.join(args.stats_dir, 'stats_Y.npz')
 
-    if os.path.exists(stats_path):
-        print(f"Found stats file: {stats_path}")
-        stats = np.load(stats_path)
-        
-        # Extract the Min and Range
-        # We used keys 'min', 'max', 'range' in the normalization script
-        # If the keys are different, check your npz file (e.g., 'data_min')
-        try:
-            # Try new keys first
-            raw_min = stats['min']
-            raw_range = stats['range']
-        except:
-            # Fallback to old keys if any
-            raw_min = stats['data_min']
-            raw_range = stats['data_range']
+        if os.path.exists(stats_path):
+            print(f"Found stats file: {stats_path}")
+            stats = np.load(stats_path)
+            
+            # Extract the Min and Range
+            # We used keys 'min', 'max', 'range' in the normalization script
+            # If the keys are different, check your npz file (e.g., 'data_min')
+            try:
+                # Try new keys first
+                raw_min = stats['min']
+                raw_range = stats['range']
+            except:
+                # Fallback to old keys if any
+                raw_min = stats['data_min']
+                raw_range = stats['data_range']
 
-        # Convert to Tensor
-        motion_min = torch.tensor(raw_min).float().to(device)
-        motion_range = torch.tensor(raw_range).float().to(device)
-        
-        # --- THE MATH ---
-        # Normalized = 2 * (x - min) / range - 1
-        # Inverse: x = ((Normalized + 1) / 2) * range + min
-        
-        output = ((output + 1.0) / 2.0) * motion_range + motion_min
-        
-        print(f"Restored Output Range: [{output.min():.3f}, {output.max():.3f}] (Should be ~ -180 to 180)")
+            # Convert to Tensor
+            motion_min = torch.tensor(raw_min).float().to(device)
+            motion_range = torch.tensor(raw_range).float().to(device)
+            
+            # --- THE MATH ---
+            # Normalized = 2 * (x - min) / range - 1
+            # Inverse: x = ((Normalized + 1) / 2) * range + min
+            
+            output = ((output + 1.0) / 2.0) * motion_range + motion_min
+            
+            print(f"Restored Output Range: [{output.min():.3f}, {output.max():.3f}] (Should be ~ -180 to 180)")
+        else:
+            print(f"⚠️ WARNING: stats_Y.npz NOT FOUND in {args.stats_dir}")
+            print("Using RAW output (Animation will look broken!)")
+        # ==========================================
+        # END: DE-NORMALIZATION
+        # ==========================================
+        # else:
+            
+        #     output = model(input_wav) # [1(batch), total_time_step, n_joint * 3]
     else:
-        print(f"⚠️ WARNING: stats_Y.npz NOT FOUND in {args.stats_dir}")
-        print("Using RAW output (Animation will look broken!)")
-    # ==========================================
-    # END: DE-NORMALIZATION
-    # ==========================================
-    # else:
-         
-    #     output = model(input_wav) # [1(batch), total_time_step, n_joint * 3]
+        mean_path = os.path.join(args.stats_dir, 'motion_mean.npy')
+        std_path = os.path.join(args.stats_dir, 'motion_std.npy')
+        
+        if os.path.exists(mean_path) and os.path.exists(std_path):
+            print(f"Using Standard Stats (Mean/Std) from {args.stats_dir}")
+            raw_mean = np.load(mean_path)
+            raw_std = np.load(std_path)
+            
+            motion_mean = torch.tensor(raw_mean).float().to(device)
+            motion_std = torch.tensor(raw_std).float().to(device)
+            
+            # Inverse Standard: x = (Norm * Std) + Mean
+            output = (output * motion_std) + motion_mean
+        else:
+            print(f"⚠️ Mean/Std not found in {args.stats_dir}. Using RAW output.")
 
     final_output_np = output.squeeze(0).cpu().numpy()
 

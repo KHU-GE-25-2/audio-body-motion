@@ -20,8 +20,8 @@ class ResidualBlock(nn.Module):
     def __init__(self, hidden_size, dropout=0.1):
         super(ResidualBlock, self).__init__()
         self.block = nn.Sequential(
-            nn.LayerNorm(hidden_size),      # 1. Stabilize input
-            nn.GELU(),                      # 2. Smooth activation
+            nn.LayerNorm(hidden_size),
+            nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_size, hidden_size),
             nn.LayerNorm(hidden_size),
@@ -39,21 +39,18 @@ class AudioGestureLSTMRevised(nn.Module):
         super(AudioGestureLSTMRevised, self).__init__()
         
         self.device = device
-        
-        # IO Dimensions
         input_size = mfcc_channel # 26
         output_size = n_joint     # 78
         
-        # --- 1. Audio Encoder (Pre-Net) ---
-        # Projects audio features up to hidden size with stabilization
+        # Audio Encoder (Pre-Net)
         self.audio_encoder = nn.Sequential(
             nn.Linear(input_size, hidden_size),
-            nn.LayerNorm(hidden_size), # Norm
-            nn.GELU(),                 # Smoothness
+            nn.LayerNorm(hidden_size),
+            nn.GELU(),
             nn.Dropout(dropout)
         )
         
-        # --- 2. The Recurrent Core ---
+        # Recurrent Core
         self.lstm = nn.LSTM(
             input_size=hidden_size, 
             hidden_size=hidden_size, 
@@ -82,22 +79,10 @@ class AudioGestureLSTMRevised(nn.Module):
 
     def forward(self, x):
         # x shape: (Batch, Time, 26)
-        
-        # 1. Encode Audio
         x = self.audio_encoder(x) 
-        
-        # 2. LSTM Processing
-        # out shape: (Batch, Time, lstm_out_size)
         x, _ = self.lstm(x)
-        
-        # 3. Project back if bidirectional
         x = self.post_lstm_proj(x)
-        
-        # 4. Apply Residual Block
-        # This is where the smoothing magic happens
         x = self.res_block(x)
-        
-        # 5. Decode to Pose
         out = self.output_decoder(x)
         
         return out
@@ -122,7 +107,7 @@ class AudioGestureLSTM(nn.Module):
         self.h3 = nn.Linear(in_features=self.mfcc_channel, out_features=self.mfcc_channel)
         self.h4 = nn.LSTM(input_size=self.mfcc_channel, hidden_size=self.hidden_size, 
                           num_layers=num_layer, bidirectional=bidirectional, batch_first=True, dropout=self.dropout)
-        self.h5 = nn.Linear(in_features=self.hidden_size * self.D, out_features=self.n_joint)
+        self.h5 = nn.Linear(in_features=self.hidden_size * self.D, out_features=self.n_joint * 3)
         self.relu = nn.ReLU()
     
     def forward(self, wav): # wav : [batch, longest_seq + 2 * context, mfcc channel]

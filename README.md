@@ -155,12 +155,39 @@ python train.py --dataset_path preprocessed_norm --results_path results_new --st
 - silence_npy_path : 전처리 4 과정 중 silence.wav를 변환해 만든 npy file의 경로 
 - hierarchy_npy_path : 전처리 4 과정 중 hierarchy.bvh를 변환해 만든 npy file의 경로
 - context : 목적으로하는 시점 전, 후에 추가하는 음성 데이터 양. 한쪽 방향으로의 frame 수를 의미
-- 추천 하이퍼 파라메터 
+- RECOMMENDED HYPERPARAMETERS
     - epoch : 500 (학습 epoch 수)
     - learning_rate : 0.01 (학습률)
     - weight_decay : 0.01 (weight decay lambda 값 )
     - milestones : 300 400 (0.1배 학습률 변경 epoch 지점)
     - context : 30 (한쪽 방향의 추가 음성 데이터 frame 수)
+
+## 평가 
+
+```
+[Old Model Inference]
+
+python inference.py --model_path results_old/train_3/LSTM_Final.ckpt --input_wav data_folder/train/wav/MM_M_C_F_C_S064_001.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --mfcc_channel 26 --n_joint 26 --context 30 --output_path results_train_old_001_1204.mp4
+```
+
+```
+[New Model Inference]
+
+python inference.py --model_path results_new/train_final/LSTM_Final.ckpt --input_wav data_folder/train/wav/MM_M_C_F_C_S064_001.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --stats_dir preprocessed_norm --hidden_size 256 --mfcc_channel 26 --n_joint 78 --context 30 --output_path results_new_001_1207_loud.mp4 --motion_loudness 1.2 --revised_model
+```
+
+```
+[model evaluation]
+
+python evaluate_model.py --model_path "results_new/train_3/LSTM_Final.ckpt" --test_dir "preprocessed_norm" --silence_npy_path preprocessed_ref/silence.npy --revised_model
+```
+
+- model_path : 학습된 모델 경로 
+- input_wav : 추론에 사용할 입력 음성
+- hierarchy_bvh_path : hierarchy.bvh 파일의 경로 (default : ref_data_folder/hierarchy.bvh)
+- silence_npy_path : 전처리 4 과정 중 silence.wav를 변환해 만든 npy file의 경로
+- context : 목적으로하는 시점 전, 후에 추가하는 음성 데이터 양. 한쪽 방향으로의 frame 수를 의미 (학습시 사용한 context 값과 같아야 함)
+- output_path : 결과 비디오가 저장될 위치 
 
 ## UE5 import
 
@@ -177,30 +204,3 @@ Spine/Head: Set Translation Mode to Absolute.
 Arms/Legs: Set Translation Mode to None (drive them with IK).
 
 *Used Full Body IK for compatibility
-
-## 평가 
-
-```
-[Old Model Inference]
-
-python inference.py --model_path results_old/train_3/LSTM_Final.ckpt --input_wav data_folder/train/wav/MM_M_C_F_C_S064_001.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --mfcc_channel 26 --n_joint 26 --context 30 --output_path results_train_old_001_1204.mp4
-```
-
-```
-[New Model Inference]
-
-python inference.py --model_path results_new/train_4/LSTM_Final.ckpt --input_wav data_folder/train/wav/MM_M_C_F_C_S064_001.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --stats_dir preprocessed_norm --hidden_size 256 --mfcc_channel 26 --n_joint 78 --context 30 --output_path results_new_001_1207_loud.mp4 --motion_loudness 1.2 --revised_model
-```
-
-```
-[model evaluation]
-
-python evaluate_model.py --model_path "results_new/train_3/LSTM_Final.ckpt" --test_dir "preprocessed_norm" --silence_npy_path preprocessed_ref/silence.npy --revised_model
-```
-
-- model_path : 학습된 모델 경로 
-- input_wav : 추론에 사용할 입력 음성
-- hierarchy_bvh_path : hierarchy.bvh 파일의 경로 (default : ref_data_folder/hierarchy.bvh)
-- silence_npy_path : 전처리 4 과정 중 silence.wav를 변환해 만든 npy file의 경로
-- context : 목적으로하는 시점 전, 후에 추가하는 음성 데이터 양. 한쪽 방향으로의 frame 수를 의미 (학습시 사용한 context 값과 같아야 함)
-- output_path : 결과 비디오가 저장될 위치 

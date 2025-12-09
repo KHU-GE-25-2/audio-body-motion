@@ -11,9 +11,7 @@ from utils.Networks import AudioGestureLSTM, AudioGestureLSTMRevised
 
 def calculate_jerk(motion_data):
     """
-    Calculates the 'smoothness' or jitter of motion.
-    Jerk is the 3rd derivative of position (change in acceleration).
-    motion_data: (Time, Joints)
+    Calculates the 'smoothness' or jitter of motion
     """
     # 1st Derivative: Velocity (pos[t+1] - pos[t])
     velocity = np.diff(motion_data, axis=0)
@@ -27,19 +25,15 @@ def calculate_jerk(motion_data):
 
 def calculate_correlation(audio_data, motion_data):
     """
-    Calculates correlation between Audio Loudness and Motion Velocity.
+    Calculates correlation between Audio Loudness and Motion Velocity
     """
-    # 1. Motion Velocity (How fast are we moving?)
-    # Shape: (Time-1, Joints) -> Average over joints -> (Time-1,)
+    # Motion Velocity
     velocity = np.abs(np.diff(motion_data, axis=0)).mean(axis=1)
     
-    # 2. Audio Loudness (Approximate from MFCC)
-    # MFCC 0 is usually the "Energy" or loudness coefficient
-    # We clip audio to match velocity length
+    # Audio Loudness (Approximate from MFCC)
     audio_envelope = audio_data[:len(velocity), 0] 
     
     # 3. Pearson Correlation
-    # Handle edge case of constant output (std=0)
     if np.std(velocity) < 1e-6 or np.std(audio_envelope) < 1e-6:
         return 0.0
         
