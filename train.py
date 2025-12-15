@@ -14,10 +14,6 @@ from utils.dataset import AudioGestureDataset, AudioGestureDatasetRevised
 from utils.collator import Collator
 from utils.Networks import AudioGestureLSTM, AudioGestureLSTMRevised
 
-# Assuming these imports exist in your project structure
-# from utils.dataset import AudioGestureDataset, Collator, get_save_path
-# from utils.Networks import AudioGestureLSTM, AudioGestureLSTMRevised
-
 def parse_args():
     parser = argparse.ArgumentParser()
 

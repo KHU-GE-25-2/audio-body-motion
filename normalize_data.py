@@ -2,28 +2,33 @@ import numpy as np
 import os
 import glob
 
+# ================= CONFIGURATION =================
+# Path to the raw .npy files
+PREPROCESSED_PATH = "preprocessed"
+OUTPUT_PATH = "preprocessed_norm"
+# =================================================
+
 def normalize_split_dataset(input_dir, output_dir):
-    # --- 1. Setup ---
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         print(f"Created output directory: {output_dir}")
 
-    # Gather all files
+    # Get all npy files
     all_files = glob.glob(os.path.join(input_dir, "*.npy"))
     
-    # Separate into X (Input) and Y (Output) lists based on filename
+    # Separate into X (Input) and Y (Output) lists
     x_files = [f for f in all_files if "_X.npy" in f]
     y_files = [f for f in all_files if "_Y.npy" in f]
     
     if not x_files or not y_files:
-        print("❌ Error: Could not find both _X and _Y files in the folder.")
+        print("Error: Could not find both _X and _Y files in the folder.")
         print(f"Found {len(x_files)} X files and {len(y_files)} Y files.")
         return
 
     print(f"Found {len(x_files)} Input (X) files and {len(y_files)} Output (Y) files.")
 
     # ==========================================
-    # PART A: Process Inputs (X) - 26 Dimensions
+    # Process Inputs (X) - 26 Dimensions
     # ==========================================
     print("\n--- Processing Inputs (X) ---")
     x_data_list = []
@@ -49,7 +54,7 @@ def normalize_split_dataset(input_dir, output_dir):
         np.save(save_path, norm_data)
 
     # ==========================================
-    # PART B: Process Outputs (Y) - 78 Dimensions
+    # Process Outputs (Y) - 78 Dimensions
     # ==========================================
     print("\n--- Processing Outputs (Y) ---")
     y_data_list = []
@@ -84,7 +89,7 @@ def normalize_split_dataset(input_dir, output_dir):
     np.savez(stats_path_Y, min=min_Y, max=max_Y, range=range_Y)
     
     print("-" * 30)
-    print("✅ Normalization Complete!")
+    print("Normalization Complete!")
     print(f"Saved normalized files to: {output_dir}")
     print(f"Saved Input Stats  -> {stats_path_X}")
     print(f"Saved Output Stats -> {stats_path_Y} (You need this for inference!)")
@@ -96,22 +101,16 @@ def normalize_padding_data():
 
     print(f"Generating normalized padding files in {output_dir}...")
 
-    # 1. Create Silence (Audio Padding)
-    # Shape: (1 frame, 26 features) -> Zeros
+    # 1. Create silence.npy for audio padding
     silence = np.zeros((1, 26), dtype=np.float32)
     np.save(os.path.join(output_dir, "silence.npy"), silence)
-    print("✅ Created silence.npy (26 dims)")
+    print("Created silence.npy (26 dims)")
 
-    # 2. Create Normalized Hierarchy (Motion Padding)
-    # Shape: (1 frame, 78 features) -> Zeros
-    # Since our data is -1 to 1, '0' represents the average/center pose, which is safe padding.
+    # 2. Create hierarchy_norm.npy file for motion padding
     hierarchy_norm = np.zeros((1, 78), dtype=np.float32)
     np.save(os.path.join(output_dir, "hierarchy_norm.npy"), hierarchy_norm)
-    print("✅ Created hierarchy_norm.npy (78 dims)")
+    print("Created hierarchy_norm.npy (78 dims)")
 
 if __name__ == "__main__":
-    INPUT_FOLDER = "preprocessed"
-    OUTPUT_FOLDER = "preprocessed_norm"
-    
-    normalize_split_dataset(INPUT_FOLDER, OUTPUT_FOLDER)
+    normalize_split_dataset(PREPROCESSED_PATH, OUTPUT_FOLDER)
     normalize_padding_data()

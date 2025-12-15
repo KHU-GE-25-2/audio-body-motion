@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import os
 import glob
 
-DATA_PATH = "preprocessed" # Your path
+DATA_PATH = "preprocessed"
 HARD_LIMIT = 360.0
 
 def inspect():
@@ -17,15 +17,14 @@ def inspect():
         data = np.load(f)
         # Check raw max value
         if np.isnan(data).any():
-            print(f"❌ Found NaN values in {file_path}")
+            print(f"Error: Found NaN values in {file_path}")
 
-        # 3. Check for massive spikes (actual glitches)
+        # Check for massive spikes(glitches)
         elif np.max(np.abs(data)) > HARD_LIMIT:
-            print(f"⚠️ Suspiciously high value ({np.max(np.abs(data)):.2f}) in {file_path}")
+            print(f"Warning: Suspiciously high value ({np.max(np.abs(data)):.2f}) in {file_path}")
             bad_files.append((f, np.max(np.abs(data))))
 
         else:
-            # If it passes these, the file is likely fine
             pass
 
     print(f"Found {len(bad_files)} suspicious files.")
@@ -44,7 +43,7 @@ def inspect():
         plt.show()
 
 def find_unit():
-    # Load the specific file mentioned in your log
+    # Load the specific file mentioned in the log
     file_path = r"preprocessed\MM_M_C_F_C_S064_001_Y.npy"
     data = np.load(file_path)
 

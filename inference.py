@@ -87,7 +87,7 @@ def main():
     else : 
         model.load_state_dict(torch.load(args.model_path, map_location=torch.device('cpu')))
 
-    model.eval() # Important: Set model to eval mode!
+    model.eval()
 
     input_wav = get_inference_input(args.input_wav, args.mfcc_channel, args.silence_npy_path, args.context).to(device)
 
@@ -110,15 +110,10 @@ def main():
             print(f"Found stats file: {stats_path}")
             stats = np.load(stats_path)
             
-            # Extract the Min and Range
-            # We used keys 'min', 'max', 'range' in the normalization script
-            # If the keys are different, check your npz file (e.g., 'data_min')
             try:
-                # Try new keys first
                 raw_min = stats['min']
                 raw_range = stats['range']
             except:
-                # Fallback to old keys if any
                 raw_min = stats['data_min']
                 raw_range = stats['data_range']
 
@@ -126,22 +121,16 @@ def main():
             motion_min = torch.tensor(raw_min).float().to(device)
             motion_range = torch.tensor(raw_range).float().to(device)
             
-            # --- THE MATH ---
             # Normalized = 2 * (x - min) / range - 1
             # Inverse: x = ((Normalized + 1) / 2) * range + min
-            
             output = ((output + 1.0) / 2.0) * motion_range + motion_min
             
             print(f"Restored Output Range: [{output.min():.3f}, {output.max():.3f}] (Should be ~ -180 to 180)")
         else:
-            print(f"⚠️ WARNING: stats_Y.npz NOT FOUND in {args.stats_dir}")
+            print(f"WARNING: stats_Y.npz NOT FOUND in {args.stats_dir}")
             print("Using RAW output (Animation will look broken!)")
-        # ==========================================
-        # END: DE-NORMALIZATION
-        # ==========================================
-        # else:
-            
-        #     output = model(input_wav) # [1(batch), total_time_step, n_joint * 3]
+
+    # if running the old model
     else:
         mean_path = os.path.join(args.stats_dir, 'motion_mean.npy')
         std_path = os.path.join(args.stats_dir, 'motion_std.npy')
@@ -157,24 +146,22 @@ def main():
             # Inverse Standard: x = (Norm * Std) + Mean
             output = (output * motion_std) + motion_mean
         else:
-            print(f"⚠️ Mean/Std not found in {args.stats_dir}. Using RAW output.")
+            print(f"Mean/Std not found in {args.stats_dir}. Using RAW output.")
 
     final_output_np = output.squeeze(0).cpu().numpy()
 
-    # 2. Define Save Paths
     bvh_output_path = args.output_path.replace(".mp4", ".bvh")
     npy_output_path = args.output_path.replace(".mp4", ".npy")
 
-    # 3. Save BVH (Rotations)
-    # NOTE: This works correctly ONLY if your model predicts Rotation Angles (Euler).
-    # If your model predicts 3D Positions (XYZ), the BVH will look 'exploded'.
+    # Works correctly only if the model predicts Rotation Angles in Euler
+    # The model's bvh will look 'exploded' if predicting 3D Positions (XYZ)
     save_bvh(
         save_path=bvh_output_path, 
         motion_data=final_output_np, 
         ref_bvh_path=args.hierarchy_bvh_path
     )
 
-    # 4. Save Raw NPY (Backup)
+    # npy result
     np.save(npy_output_path, final_output_np)
     print(f"Saved raw motion data to {npy_output_path}")
 

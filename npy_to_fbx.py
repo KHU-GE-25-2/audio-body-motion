@@ -10,11 +10,10 @@ BVH_PATH = os.getenv("BVH_PATH")
 NPY_PATH = os.getenv("NPY_PATH")
 FBX_OUTPUT = os.getenv("FBX_OUTPUT")
 
-# TARGET HEIGHT: We force the character to be this tall (in Meters)
-# Unreal Mannequin is ~1.80m. We use 1.75m to be safe.
+# force the character to be TARGET_HEIGHT_METERS tall (UE5 Skeleton is usually 1.8m tall)
 TARGET_HEIGHT_METERS = 1.75
 
-# AXIS MODE: 1 = Standard (Y-Up Data -> Z-Up Blender)
+# AXIS MODE: 1 = Standard (Y-Up Data to Z-Up Blender)
 AXIS_MODE = 1
 TARGET_FPS = 30 
 FRAME_TIME = 1.0 / TARGET_FPS 
@@ -61,29 +60,23 @@ def ensure_clean_bvh(input_path):
     return temp_path
 
 def calculate_auto_scale(data):
-    """
-    Analyzes the first frame to find the character's bounding box size.
-    Returns a scale factor that normalizes the height to TARGET_HEIGHT_METERS.
-    """
-    # 1. Get Frame 0 Data (Shape: N_Joints * 3)
+    # Get Frame 0 Data
     frame0 = data[0]
     
-    # 2. Reshape to (N_Joints, 3) points
-    # Careful: We must ensure we don't index out of bounds
+    # Reshape to (N_Joints, 3) points
     n_points = len(frame0) // 3
     points = frame0[:n_points*3].reshape(-1, 3)
     
-    # 3. Calculate Extents (Max - Min) for X, Y, Z
+    # Calculate Extents (Max - Min) for X, Y, Z
     min_vals = np.min(points, axis=0)
     max_vals = np.max(points, axis=0)
     extents = max_vals - min_vals
     
-    # 4. Find the largest dimension (usually Height)
-    # We use the max dimension to handle rotation ambiguity (Y-up vs Z-up)
+    # Find the largest dimension (usually the height)
     raw_height = np.max(extents)
     
     if raw_height < 0.001: 
-        print("⚠️ Warning: Data seems flat or zero. Defaulting scale to 0.01")
+        print("Warning: Data seems flat or zero. Defaulting scale to 0.01")
         return 0.01
         
     scale_factor = TARGET_HEIGHT_METERS / raw_height
@@ -98,7 +91,7 @@ def process_and_export():
     scene = bpy.context.scene
     scene.render.fps = TARGET_FPS
     
-    # 1. Import Skeleton
+    # Import Skeleton
     clean_bvh = ensure_clean_bvh(BVH_PATH)
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete()
@@ -109,17 +102,18 @@ def process_and_export():
     armature = bpy.context.object
     armature.name = "AI_Skeleton"
 
-    # 2. Get Data Order
+    # Get Data Order
     npy_order = get_bvh_node_order(BVH_PATH)
 
-    # 3. Disconnect Bones
+    # Disconnect Bones
     bpy.context.view_layer.objects.active = armature
     bpy.ops.object.mode_set(mode='EDIT')
     for bone in armature.data.edit_bones:
         bone.use_connect = False
     bpy.ops.object.mode_set(mode='OBJECT')
     
-    # 4. Add Dummy Mesh
+    # Add Dummy Mesh
+    # to fix Unreal Engine import error due to mesh absence
     bpy.ops.mesh.primitive_cube_add(size=0.1, location=(0, 0, 0))
     dummy_mesh = bpy.context.object
     dummy_mesh.name = "Dummy_SK_Mesh"
@@ -130,15 +124,12 @@ def process_and_export():
     bpy.ops.object.parent_set(type='ARMATURE_AUTO')
     if dummy_mesh.animation_data: dummy_mesh.animation_data_clear()
 
-    # 5. Load Data & Calculate Scale
     print(f"Loading NPY Data: {NPY_PATH}")
     data = np.load(NPY_PATH)
-    
-    # --- AUTO SCALE CALCULATION ---
+
     GLOBAL_SCALE = calculate_auto_scale(data)
-    # ------------------------------
     
-    # 6. Setup Empties
+    # Setup Empties
     bpy.ops.object.mode_set(mode='OBJECT')
     index_to_empty = {} 
     
@@ -158,7 +149,7 @@ def process_and_export():
             c.target_space = 'WORLD'
             bpy.ops.object.mode_set(mode='OBJECT')
 
-    # 7. Bake Loop
+    # Bake Loop
     print(f"Baking {data.shape[0]} frames...")
     scene.frame_start = 0
     scene.frame_end = data.shape[0]
@@ -174,8 +165,7 @@ def process_and_export():
             raw_y = frame_data[i*3+1]
             raw_z = frame_data[i*3+2]
             
-            # AXIS SWAP: Y-Up (Data) -> Z-Up (Blender)
-            # Standard: X->X, Y->-Z, Z->Y
+            # AXIS SWAP: Y-Up (Data) to Z-Up (Blender)
             if AXIS_MODE == 1:
                 new_x = raw_x * GLOBAL_SCALE
                 new_y = -raw_z * GLOBAL_SCALE 
@@ -192,7 +182,7 @@ def process_and_export():
         
         if frame_idx % 50 == 0: print(f"Processing {frame_idx}...")
 
-    # 8. Cleanup & Export
+    # Cleanup & Export
     bpy.ops.object.select_all(action='DESELECT')
     for idx, emp in index_to_empty.items(): emp.select_set(True)
     bpy.ops.object.delete()
@@ -212,7 +202,7 @@ def process_and_export():
         axis_forward='-Z',
         axis_up='Y'
     )
-    print("✅ Export Complete.")
+    print("Export Complete.")
 
 if __name__ == "__main__":
     process_and_export()

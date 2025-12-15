@@ -10,7 +10,7 @@ try:
     mean_path = os.path.join(target_folder, 'motion_mean.npy')
     
     if not os.path.exists(std_path):
-        print("❌ ERROR: File not found!")
+        print("ERROR: File not found!")
         exit()
 
     std = np.load(std_path)
@@ -18,19 +18,20 @@ try:
 
     print(f"Loaded Std Shape: {std.shape}")
     
-    # Check Index 0 (Root X - Should be 1.0)
-    print(f"Index 0 (Root): {std[0]} \t<-- If 1.0, that is Normal.")
+    # Index 0 (Root X - Should be 1.0)
+    print(f"Index 0 (Root): {std[0]}")
     
-    # Check Index 3 (Spine/Hip Rotation - Should be small, like 0.21)
+    # Index 3 (Spine/Hip Rotation
+    # should be small like 0.2)
     val_3 = std[3]
-    print(f"Index 3 (Body): {val_3} \t<-- THE MOMENT OF TRUTH")
+    print(f"Index 3 (Body): {val_3}")
 
     if val_3 == 1.0:
-        print("\n❌ DIAGNOSIS: The stats file is BROKEN.")
+        print("\nDIAGNOSIS: The stats file is BROKEN.")
         print("   It contains 1.0 for moving joints. Normalization will NOT work.")
-        print("   Action: You must re-run calculate_stats.py.")
+        print("   Action: Re-run calculate_stats.py.")
     else:
-        print("\n✅ DIAGNOSIS: The stats file is VALID.")
+        print("\nDIAGNOSIS: The stats file is VALID.")
         print("   If training is still failing, the issue is in dataset.py __getitem__.")
 
 except Exception as e:

@@ -14,8 +14,7 @@ def get_numpy(path):
     
 class ResidualBlock(nn.Module):
     """
-    A simple Residual Block: x = x + MLP(x)
-    Helps smooth out the signal and prevents gradient vanishing.
+    Residual Block: x = x + MLP(x)
     """
     def __init__(self, hidden_size, dropout=0.1):
         super(ResidualBlock, self).__init__()
@@ -66,11 +65,10 @@ class AudioGestureLSTMRevised(nn.Module):
         # Projection to bring bidirectional output back to hidden_size
         self.post_lstm_proj = nn.Linear(lstm_out_size, hidden_size)
 
-        # --- 3. Residual Correction (The Smoother) ---
-        # Allows the model to refine the flow
+        # Residual Correction
         self.res_block = ResidualBlock(hidden_size, dropout)
         
-        # --- 4. Motion Decoder (Post-Net) ---
+        # Motion Decoder
         self.output_decoder = nn.Sequential(
             nn.LayerNorm(hidden_size),
             nn.GELU(),
