@@ -219,7 +219,7 @@ __marimo__/
 data_folder
 preprocessed
 preprocessed_norm
-results_new
-results_old
+results
+test_audios
 *.mp4
 *.fbx

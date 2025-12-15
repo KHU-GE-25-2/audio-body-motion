@@ -1,6 +1,6 @@
 # NIA 음성 및 모션 합성 과제 베이스 코드 
 
-음성 데이터로부터 자연스러운 모션을 합성하는 과제의 베이스 코드이며 2017년 LSTM을 활용한 음성 기반 모션 합성 논문([링크](https://www.researchgate.net/publication/320435956_Speech-to-Gesture_Generation_A_Challenge_in_Deep_Learning_Approach_with_Bi-Directional_LSTM))를 바탕으로 구현됨
+음성 데이터로부터 자연스러운 모션을 합성하는 과제의 베이스 코드이며 2017년 LSTM을 활용한 음성 기반 모션 합성 논문([링크](https://dl.acm.org/doi/10.1145/3308532.3329472))를 바탕으로 구현됨
 
 이 연구는 과학기술정보통신부의 재원으로 한국지능정보사회진흥원의 지원을 받아 구축된 "음성 및 모션 합성 데이터"을 활용하여 수행된 연구입니다. 본 연구에 활용된 데이터는 AI 허브(aihub.or.kr)에서 다운로드 받으실 수 있습니다.
 
@@ -122,14 +122,14 @@ python get_reference_npy.py --wav_path ref_data_folder/silence.wav --bvh_path re
 
 ## 추가 전처리 (revised model 위함)
 
-for the revised model: calculate mean for revised model and normalize preprocessed data
+for the revised model: 개선 모델을 위해 전처리된 데이터 정규화 필요
 
 ```
 python calculate_stats.py
 python normalize_data.py
 ```
 
-if you want to check if the data is valid and normalized well
+정규화가 잘 진행되었는지 확인 위해 아래 스크립트 실행
 
 ```
 python check_preprocessed_ref.py
@@ -138,16 +138,16 @@ python inspect_data.py
 
 ## 학습
 
-```
+
 [Old Model Training]
-
-python train.py --dataset_path preprocessed --results_path results_old --silence_npy_path preprocessed_ref/silence.npy --hierarchy_npy_path preprocessed_ref/hierarchy.npy --context 30 --mfcc_channel 26 --n_joint 26 --epoch 200 --learning_rate 0.01 --weight_decay 0.01 --milestones 300 400
+```
+python train.py --dataset_path preprocessed --results_path results/train_results_old --silence_npy_path preprocessed_ref/silence.npy --hierarchy_npy_path preprocessed_ref/hierarchy.npy --context 30 --mfcc_channel 26 --n_joint 26 --epoch 300 --learning_rate 0.01 --weight_decay 0.01 --milestones 300 400
 ```
 
-```
+
 [New Model Training]
-
-python train.py --dataset_path preprocessed_norm --results_path results_new --stats_dir preprocessed_ref --silence_npy_path preprocessed_ref/silence.npy --hierarchy_npy_path preprocessed_ref/hierarchy_norm.npy --context 30 --mfcc_channel 26 --n_joint 78 --epoch 100 --dropout 0.2 --learning_rate 0.0002 --hidden_size 256 --milestones 300 400 --weight_decay 0.01 --batch_size 15 --revised_model
+```
+python train.py --dataset_path preprocessed_norm --results_path results/train_results_new --stats_dir preprocessed_ref --silence_npy_path preprocessed_ref/silence.npy --hierarchy_npy_path preprocessed_ref/hierarchy_norm.npy --context 30 --mfcc_channel 26 --n_joint 78 --epoch 100 --dropout 0.2 --learning_rate 0.0002 --hidden_size 256 --milestones 300 400 --weight_decay 0.01 --batch_size 15 --revised_model
 ```
 
 - dataset_path : 전처리 과정에서 생성된 npy 폴더 (전처리 3 과정의 결과물)
@@ -164,22 +164,20 @@ python train.py --dataset_path preprocessed_norm --results_path results_new --st
 
 ## 평가 
 
-```
+
 [Old Model Inference]
-
-python inference.py --model_path results_old/train_3/LSTM_Final.ckpt --input_wav data_folder/train/wav/MM_M_C_F_C_S064_001.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --mfcc_channel 26 --n_joint 26 --context 30 --output_path results_train_old_001_1204.mp4
+```
+python inference.py --model_path train_results_old/train_final/LSTM_Final.ckpt --input_wav test_audios/definition_of_insanity.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --mfcc_channel 26 --n_joint 26 --context 30 --output_path results_old_definition_of_insanity.mp4
 ```
 
-```
 [New Model Inference]
-
-python inference.py --model_path results_new/train_final/LSTM_Final.ckpt --input_wav data_folder/train/wav/MM_M_C_F_C_S064_001.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --stats_dir preprocessed_norm --hidden_size 256 --mfcc_channel 26 --n_joint 78 --context 30 --output_path results_new_001_1207_loud.mp4 --motion_loudness 1.2 --revised_model
+```
+python inference.py --model_path train_results_new/train_final/LSTM_Final.ckpt --input_wav test_audios/definition_of_insanity.wav --hierarchy_bvh_path ref_data_folder/hierarchy.bvh --silence_npy_path preprocessed_ref/silence.npy --stats_dir preprocessed_norm --hidden_size 256 --mfcc_channel 26 --n_joint 78 --context 30 --output_path results_new_definition_of_insanity.mp4 --motion_loudness 1.2 --revised_model
 ```
 
-```
 [model evaluation]
-
-python evaluate_model.py --model_path "results_new/train_3/LSTM_Final.ckpt" --test_dir "preprocessed_norm" --silence_npy_path preprocessed_ref/silence.npy --revised_model
+```
+python evaluate_model.py --model_path results_new/train_final/LSTM_Final.ckpt --test_dir preprocessed_norm --silence_npy_path preprocessed_ref/silence.npy --revised_model
 ```
 
 - model_path : 학습된 모델 경로 
@@ -203,4 +201,4 @@ Root/Hips: Set Translation Mode to Absolute.
 Spine/Head: Set Translation Mode to Absolute.
 Arms/Legs: Set Translation Mode to None (drive them with IK).
 
-*Used Full Body IK for compatibility
+*Full Body IK 사용함
