@@ -9,19 +9,19 @@ from scipy.stats import pearsonr
 # Assumes you have your class definitions here
 from utils.Networks import AudioGestureLSTM, AudioGestureLSTMRevised
 
-def calculate_jerk(motion_data):
+def calculate_jitter(motion_data):
     """
-    Calculates the 'smoothness' or jitter of motion
+    Calculates the jitter of motion
     """
     # 1st Derivative: Velocity (pos[t+1] - pos[t])
     velocity = np.diff(motion_data, axis=0)
     # 2nd Derivative: Acceleration
     acceleration = np.diff(velocity, axis=0)
-    # 3rd Derivative: Jerk
-    jerk = np.diff(acceleration, axis=0)
+    # 3rd Derivative: Jitter
+    jitter = np.diff(acceleration, axis=0)
     
-    # Average magnitude of jerk across all frames and joints
-    return np.mean(np.abs(jerk))
+    # Average magnitude of jitter across all frames and joints
+    return np.mean(np.abs(jitter))
 
 def calculate_correlation(audio_data, motion_data):
     """
@@ -33,7 +33,7 @@ def calculate_correlation(audio_data, motion_data):
     # Audio Loudness (Approximate from MFCC)
     audio_envelope = audio_data[:len(velocity), 0] 
     
-    # 3. Pearson Correlation
+    # Pearson Correlation
     if np.std(velocity) < 1e-6 or np.std(audio_envelope) < 1e-6:
         return 0.0
         
@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument('--stats_dir', type=str, default='preprocessed_norm', help='Folder with stats_Y.npz')
     parser.add_argument('--silence_npy_path', type=str, default='reference_data/silence.npy', help='silence npy file path')
 
-    # Model Config (Must match training!)
+    # Model Config (Must match that of training)
     parser.add_argument('--mfcc_channel', type=int, default=26)
     parser.add_argument('--n_joint', type=int, default=78)
     parser.add_argument('--hidden_size', type=int, default=256)
@@ -62,8 +62,8 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Evaluator running on: {device}")
 
-    # --- 1. Load Model ---
     model = None
+
     if args.revised_model:
         model = AudioGestureLSTMRevised(args.mfcc_channel, args.context, args.hidden_size, args.n_joint, device=device, num_layers=2, bidirectional=True)
     else:
@@ -75,20 +75,19 @@ def main():
             args.silence_npy_path,
             device=device)
         
-    # Load Weights
     checkpoint = torch.load(args.model_path, map_location=device)
     model.load_state_dict(checkpoint)
     model.to(device)
     model.eval()
 
-    # --- 2. Load Stats for De-Normalization ---
+    # De-Normalization Stats
     stats_path = os.path.join(args.stats_dir, 'stats_Y.npz')
     if not os.path.exists(stats_path):
-        print("❌ Error: Stats file not found. Cannot evaluate metrics in Real Scale.")
+        print("Error: Stats file not found. Cannot evaluate metrics in Real Scale.")
         return
         
     stats = np.load(stats_path)
-    # Handle different key naming conventions
+
     try:
         raw_min = stats['min']
         raw_range = stats['range']
@@ -99,8 +98,6 @@ def main():
     data_min = torch.tensor(raw_min).float().to(device)
     data_range = torch.tensor(raw_range).float().to(device)
 
-    # --- 3. Find Test Files ---
-    # We look for paired X (Audio) and Y (Motion) files
     x_files = sorted(glob.glob(os.path.join(args.test_dir, "*_X.npy")))
     print(f"Found {len(x_files)} test files. Starting evaluation...")
 
@@ -116,7 +113,7 @@ def main():
             y_path = x_path.replace("_X.npy", "_Y.npy")
             if not os.path.exists(y_path): continue
 
-            # Load Data (Normalized)
+            # Load normalized ata
             input_wav = np.load(x_path).astype(np.float32) # (Time, 26)
             gt_motion = np.load(y_path).astype(np.float32) # (Time, 78)
             
@@ -125,45 +122,40 @@ def main():
             input_wav = input_wav[:min_len]
             gt_motion = gt_motion[:min_len]
 
-            # Prepare Batch for Model
-            # Input shape needs to be (1, Time, 26)
+            # Prepare Batch for Model (Input shape: (1, Time, 26))
             inp_tensor = torch.tensor(input_wav).unsqueeze(0).to(device)
             
-            # --- INFERENCE ---
             gen_motion_tensor = model(inp_tensor) # (1, Time, 78)
             
             # Apply Energy Multiplier (optional)
             if args.energy != 1.0:
                 gen_motion_tensor = gen_motion_tensor * args.energy
 
-            # --- DE-NORMALIZE ---
-            # We want metrics in Real Degrees, not -1 to 1
+            # De-normalization
+            # Metrics in Real Degrees, not -1 to 1
             # Inverse: x = ((Norm + 1) / 2) * Range + Min
             gen_motion = ((gen_motion_tensor.squeeze(0) + 1.0) / 2.0) * data_range + data_min
             
-            # We must also de-normalize the Ground Truth for fair comparison
+            # De-normalize the Ground Truth for fair comparison
             gt_motion_tensor = torch.tensor(gt_motion).to(device)
             gt_motion_real = ((gt_motion_tensor + 1.0) / 2.0) * data_range + data_min
 
             # Convert to CPU Numpy for Calc
             gen_np = gen_motion.cpu().numpy()
             gt_np = gt_motion_real.cpu().numpy()
-            
-            # --- CALCULATE METRICS ---
 
-            # [FIX] Force lengths to match exactly before comparison
+            # Force lengths to match exactly before comparison
             final_len = min(len(gen_np), len(gt_np))
             gen_np = gen_np[:final_len]
             gt_np = gt_np[:final_len]
-            # [END FIX]
             
             # 1. Similarity (L1 Loss)
             mae = np.mean(np.abs(gen_np - gt_np))
             mae_scores.append(mae)
             
             # 2. Jitter (Smoothness)
-            j_gen = calculate_jerk(gen_np)
-            j_real = calculate_jerk(gt_np)
+            j_gen = calculate_jitter(gen_np)
+            j_real = calculate_jitter(gt_np)
             jerk_gen_scores.append(j_gen)
             jerk_real_scores.append(j_real)
             
@@ -175,7 +167,7 @@ def main():
             
             print(f"Processed {os.path.basename(x_path)} | MAE: {mae:.2f}")
 
-    # --- 4. Final Report ---
+    # Final Report
     print("\n" + "="*40)
     print("      EVALUATION RESULTS      ")
     print("="*40)
@@ -186,20 +178,20 @@ def main():
     
     jitter_ratio = np.mean(jerk_gen_scores) / np.mean(jerk_real_scores)
     if jitter_ratio > 1.1:
-        print(f"⚠️  Verdict: Generated motion is JITTERY (Ratio: {jitter_ratio:.2f})")
+        print(f"Result: Generated motion is JITTERY (Ratio: {jitter_ratio:.2f})")
     elif jitter_ratio < 0.8:
-        print(f"⚠️  Verdict: Generated motion is OVER-SMOOTHED (Ratio: {jitter_ratio:.2f})")
+        print(f"Result: Generated motion is OVER-SMOOTHED (Ratio: {jitter_ratio:.2f})")
     else:
-        print(f"✅ Verdict: Smoothness matches Reality (Ratio: {jitter_ratio:.2f})")
+        print(f"Result: Smoothness matches Reality (Ratio: {jitter_ratio:.2f})")
         
     print("-" * 40)
     print(f"Real Data Audio-Motion Corr: {np.mean(corr_real_scores):.4f}")
     print(f"Generated Audio-Motion Corr: {np.mean(corr_gen_scores):.4f}")
     
     if np.mean(corr_gen_scores) > np.mean(corr_real_scores):
-        print("✅ Verdict: Model reacts strongly to the beat.")
+        print("Result: Model reacts strongly to the beat.")
     else:
-        print("ℹ️  Verdict: Model is more passive than the real actor.")
+        print("Result: Model is more passive than the real actor.")
     print("="*40)
 
 if __name__ == '__main__':
